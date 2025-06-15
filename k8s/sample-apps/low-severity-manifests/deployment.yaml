@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: low-severity-app
+  labels:
+    app: low-severity-app
+    drift-severity: "low"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: low-severity-app
+  template:
+    metadata:
+      labels:
+        app: low-severity-app
+    spec:
+      containers:
+      - name: app
+        image: nginx:1.20
+        ports:
+        - containerPort: 80
+---
+# Add PreSync Hook
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: drift-analysis-presync-
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-1"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: drift-analyzer
+        image: drift-analyzer:latest
+        imagePullPolicy: Never
+        env:
+        - name: APP_NAME
+          value: "low-severity-app"
+        - name: SEVERITY
+          value: "low"
+        command: ["python", "/app/analyze_drift.py"]
+---
+# Add PostSync Hook
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: audit-logger-postsync-
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: audit-logger
+        image: audit-logger:latest
+        imagePullPolicy: Never
+        env:
+        - name: APP_NAME
+          value: "low-severity-app"
+        - name: SEVERITY
+          value: "low"
+        command: ["python", "/app/log_audit.py"]

@@ -1,0 +1,189 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: high-severity-app
+  labels:
+    app: high-severity-app
+    drift-severity: "high"
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: high-severity-app
+  template:
+    metadata:
+      labels:
+        app: high-severity-app
+    spec:
+      containers:
+      - name: app
+        image: nginx:1.20
+        ports:
+        - containerPort: 80
+        env:
+        - name: CONFIG_LEVEL
+          value: "high"
+        - name: SECURITY_MODE
+          value: "strict"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "1000m"
+          limits:
+            memory: "512Mi"
+            cpu: "2000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: high-severity-app-service
+spec:
+  selector:
+    app: high-severity-app
+  ports:
+  - port: 80
+    targetPort: 80
+  type: ClusterIP
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: high-severity-app-secret
+type: Opaque
+data:
+  api-key: aGlnaC1zZWN1cml0eS1hcGkta2V5 # base64 encoded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: high-severity-app-role
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: high-severity-app-binding
+subjects:
+- kind: ServiceAccount
+  name: default
+roleRef:
+  kind: Role
+  name: high-severity-app-role
+  apiGroup: rbac.authorization.k8s.io
+---
+# PreSync Hook for High Severity - Critical Analysis
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: drift-analysis-presync-high-
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-2"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: drift-analyzer
+        image: drift-analyzer:latest
+        imagePullPolicy: Never
+        env:
+        - name: APP_NAME
+          value: "high-severity-app"
+        - name: SEVERITY
+          value: "high"
+        - name: NAMESPACE
+          value: "enhanced-high-severity"
+        - name: CRITICAL_MODE
+          value: "true"
+        - name: SECURITY_SCAN
+          value: "enabled"
+        command: ["python", "/app/analyze_drift.py"]
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "200m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+---
+# PostSync Hook for High Severity - Emergency Audit
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: audit-logger-postsync-high-
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: audit-logger
+        image: audit-logger:latest
+        imagePullPolicy: Never
+        env:
+        - name: APP_NAME
+          value: "high-severity-app"
+        - name: SEVERITY
+          value: "high"
+        - name: NAMESPACE
+          value: "enhanced-high-severity"
+        - name: ACTION
+          value: "emergency_remediation_completed"
+        - name: COMPLIANCE_MODE
+          value: "strict"
+        - name: NOTIFY_ONCALL
+          value: "true"
+        command: ["python", "/app/log_audit.py"]
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "200m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+---
+# SyncFail Hook for High Severity - Immediate Emergency Response
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: emergency-rollback-syncfail-high-
+  annotations:
+    argocd.argoproj.io/hook: SyncFail
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: emergency-rollback
+        image: emergency-rollback:latest
+        imagePullPolicy: Never
+        env:
+        - name: APP_NAME
+          value: "high-severity-app"
+        - name: SEVERITY
+          value: "high"
+        - name: NAMESPACE
+          value: "enhanced-high-severity"
+        - name: ESCALATION_LEVEL
+          value: "immediate_emergency"
+        - name: TRIGGER_ONCALL
+          value: "true"
+        - name: ROLLBACK_MODE
+          value: "aggressive"
+        command: ["python", "/app/emergency_rollback.py"]
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "200m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
