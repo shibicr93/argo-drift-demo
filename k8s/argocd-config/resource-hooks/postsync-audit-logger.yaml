@@ -1,0 +1,79 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: audit-logger-postsync
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: argo-drift-controller
+      containers:
+      - name: audit-logger
+        image: audit-logger:latest
+        env:
+        - name: APP_NAME
+          value: "{{.Values.appName}}"
+        - name: NAMESPACE
+          value: "{{.Values.namespace}}"
+        command:
+        - python
+        - /app/log_audit.py
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: audit-logger-script
+  annotations:
+    argocd.argoproj.io/hook: PostSync
+    argocd.argoproj.io/sync-wave: "1"
+data:
+  log_audit.py: |
+    import os
+    import json
+    from datetime import datetime
+    from kubernetes import client, config
+    
+    def create_audit_log():
+        try:
+            config.load_incluster_config()
+        except:
+            config.load_kube_config()
+        
+        v1 = client.CoreV1Api()
+        app_name = os.getenv('APP_NAME', 'unknown')
+        namespace = os.getenv('NAMESPACE', 'default')
+        
+        audit_entry = {
+            'metadata': {
+                'name': f'audit-{app_name}-{int(datetime.now().timestamp())}',
+                'labels': {
+                    'app': app_name,
+                    'audit-type': 'drift-remediation',
+                    'timestamp': datetime.now().isoformat()
+                }
+            },
+            'data': {
+                'application': app_name,
+                'namespace': namespace,
+                'action': 'sync_completed',
+                'timestamp': datetime.now().isoformat(),
+                'remediation_status': 'success'
+            }
+        }
+        
+        try:
+            v1.create_namespaced_config_map(
+                namespace='argocd',
+                body=audit_entry
+            )
+            print(f"Audit log created for {app_name}")
+        except Exception as e:
+            print(f"Failed to create audit log: {e}")
+    
+    if __name__ == '__main__':
+        create_audit_log()
+

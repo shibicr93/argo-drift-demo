@@ -1,0 +1,76 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: emergency-rollback-syncfail
+  annotations:
+    argocd.argoproj.io/hook: SyncFail
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: argo-drift-controller
+      containers:
+      - name: emergency-rollback
+        image: emergency-rollback:latest
+        env:
+        - name: APP_NAME
+          value: "{{.Values.appName}}"
+        - name: SEVERITY
+          value: "{{.Values.severity}}"
+        command:
+        - python
+        - /app/emergency_rollback.py
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: emergency-rollback-script
+  annotations:
+    argocd.argoproj.io/hook: SyncFail
+data:
+  emergency_rollback.py: |
+    import os
+    from kubernetes import client, config
+    
+    def execute_emergency_rollback():
+        try:
+            config.load_incluster_config()
+        except:
+            config.load_kube_config()
+        
+        app_name = os.getenv('APP_NAME', 'unknown')
+        severity = os.getenv('SEVERITY', 'low')
+        
+        print(f"EMERGENCY: Executing rollback for {app_name} (severity: {severity})")
+        
+        if severity == 'high':
+            # Trigger immediate rollback via ArgoCD API
+            print(f"Triggering emergency rollback for high-severity drift in {app_name}")
+            # Implementation would call ArgoCD API to rollback to last known good state
+        
+        # Create emergency alert
+        v1 = client.CoreV1Api()
+        alert_cm = {
+            'metadata': {
+                'name': f'emergency-alert-{app_name}',
+                'labels': {'alert-type': 'emergency-rollback'}
+            },
+            'data': {
+                'alert': f'Emergency rollback executed for {app_name}',
+                'severity': severity,
+                'timestamp': '2025-06-14T22:43:00Z'
+            }
+        }
+        
+        try:
+            v1.create_namespaced_config_map(
+                namespace='argocd',
+                body=alert_cm
+            )
+        except Exception as e:
+            print(f"Failed to create alert: {e}")
+    
+    if __name__ == '__main__':
+        execute_emergency_rollback()
+

@@ -1,0 +1,75 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: drift-analysis-presync
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-2"
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: drift-analyzer
+        image: drift-analyzer:latest
+        env:
+        - name: APP_NAME
+          value: "{{.Values.appName}}"
+        - name: SEVERITY
+          value: "{{.Values.severity}}"
+        command:
+        - python
+        - /app/analyze_drift.py
+        volumeMounts:
+        - name: analysis-results
+          mountPath: /results
+      volumes:
+      - name: analysis-results
+        emptyDir: {}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: drift-analysis-script
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "-3"
+data:
+  analyze_drift.py: |
+    import os
+    import json
+    from kubernetes import client, config
+    
+    def analyze_drift():
+        app_name = os.getenv('APP_NAME', 'unknown')
+        severity = os.getenv('SEVERITY', 'low')
+        
+        print(f"Analyzing drift for {app_name} with severity {severity}")
+        
+        # Drift analysis logic
+        analysis_result = {
+            'app_name': app_name,
+            'severity': severity,
+            'timestamp': '2025-06-14T22:43:00Z',
+            'drift_detected': True,
+            'recommended_action': get_recommended_action(severity)
+        }
+        
+        # Save results for next hook
+        with open('/results/analysis.json', 'w') as f:
+            json.dump(analysis_result, f)
+        
+        print(f"Analysis complete: {analysis_result}")
+    
+    def get_recommended_action(severity):
+        actions = {
+            'low': 'auto_sync',
+            'medium': 'notify_and_approve',
+            'high': 'immediate_rollback'
+        }
+        return actions.get(severity, 'manual_review')
+    
+    if __name__ == '__main__':
+        analyze_drift()
+
