@@ -1,0 +1,50 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: drift-managed-applicationset
+  namespace: argocd
+spec:
+  generators:
+  - list:
+      elements:
+      - severity: "low"
+        namespace: "enhanced-low-severity"
+        path: "k8s/sample-apps/low-severity-manifests"
+        autoRemediate: "true"
+        syncPolicy: "automated"
+      - severity: "medium"
+        namespace: "enhanced-medium-severity"
+        path: "k8s/sample-apps/medium-severity-manifests"
+        autoRemediate: "conditional"
+        syncPolicy: "manual"
+      - severity: "high"
+        namespace: "enhanced-high-severity"
+        path: "k8s/sample-apps/high-severity-manifests"
+        autoRemediate: "immediate"
+        syncPolicy: "emergency"
+  template:
+    metadata:
+      name: 'enhanced-{{.severity}}-app'
+      labels:
+        drift-severity: '{{.severity}}'
+        auto-remediate: '{{.autoRemediate}}'
+      annotations:
+        argocd.argoproj.io/sync-options: CreateNamespace=true
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/your-repo/argo-drift-demo.git
+        targetRevision: HEAD
+        path: '{{.path}}'
+        directory:
+          recurse: true
+          include: "*.yaml"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{.namespace}}'
+      syncPolicy:
+        automated:
+          prune: '{{eq .syncPolicy "automated"}}'
+          selfHeal: '{{eq .syncPolicy "automated"}}'
+        syncOptions:
+        - CreateNamespace=true
