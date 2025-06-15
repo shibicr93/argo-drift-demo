@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: remediation-policies
+  namespace: argocd
+data:
+  policies.yaml: |
+    remediation_matrix:
+      low:
+        action: auto_sync
+        approval_required: false
+        cooldown_minutes: 5
+        max_retries: 3
+        notification_channels: ["slack"]
+      medium:
+        action: notify_and_timeout
+        approval_required: true
+        timeout_hours: 24
+        escalation_hours: 4
+        max_retries: 2
+        notification_channels: ["slack", "email"]
+      high:
+        action: immediate_rollback
+        approval_required: false
+        cooldown_minutes: 0
+        max_retries: 1
+        notification_channels: ["slack", "email", "pagerduty"]
+      critical:
+        action: emergency_stop
+        approval_required: false
+        notify_oncall: true
+        max_retries: 0
+        notification_channels: ["pagerduty", "phone"]
+    
+    severity_rules:
+      critical:
+        - "secret"
+        - "rbac"
+        - "security"
+      high:
+        - "deployment"
+        - "service"
+        - "ingress"
+      medium:
+        - "configmap"
+        - "pvc"
+      low:
+        - "labels"
+        - "annotations"
+
