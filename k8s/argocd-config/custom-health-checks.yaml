@@ -48,5 +48,6 @@ data:
       end
     end
     hs.status = "Healthy"
+    hs.message = "Application is healthy and in sync"
     return hs
 

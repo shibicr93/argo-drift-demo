@@ -1,35 +1,26 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: drift-managed-applicationset
+  name: drift-managed-low-severity
   namespace: argocd
 spec:
   generators:
-  - list:
-      elements:
-      - severity: "low"
-        namespace: "enhanced-low-severity"
-        autoRemediate: "true"
-        enableAutomated: "true"
-      - severity: "high"
-        namespace: "enhanced-high-severity"
-        autoRemediate: "immediate"
-        enableAutomated: "true"
+  - clusters: {}
   template:
     metadata:
-      name: 'enhanced-{{.severity}}-app'
+      name: enhanced-low-app
       labels:
-        drift-severity: '{{.severity}}'
-        auto-remediate: '{{.autoRemediate}}'
+        drift-severity: low
+        auto-remediate: "true"
     spec:
       project: default
       source:
         repoURL: https://github.com/shibicr93/argo-drift-demo.git
         targetRevision: HEAD
-        path: 'k8s/sample-apps/{{.severity}}-severity-manifests'
+        path: k8s/sample-apps/low-severity-manifests
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{.namespace}}'
+        namespace: enhanced-low-severity
       syncPolicy:
         syncOptions:
         - CreateNamespace=true
@@ -40,31 +31,56 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: drift-managed-applicationset-manual
+  name: drift-managed-medium-severity
   namespace: argocd
 spec:
   generators:
-  - list:
-      elements:
-      - severity: "medium"
-        namespace: "enhanced-medium-severity"
-        autoRemediate: "conditional"
-        enableAutomated: "false"
+  - clusters: {}
   template:
     metadata:
-      name: 'enhanced-{{.severity}}-app'
+      name: enhanced-medium-app
       labels:
-        drift-severity: '{{.severity}}'
-        auto-remediate: '{{.autoRemediate}}'
+        drift-severity: medium
+        auto-remediate: conditional
     spec:
       project: default
       source:
         repoURL: https://github.com/shibicr93/argo-drift-demo.git
         targetRevision: HEAD
-        path: 'k8s/sample-apps/{{.severity}}-severity-manifests'
+        path: k8s/sample-apps/medium-severity-manifests
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{.namespace}}'
+        namespace: enhanced-medium-severity
       syncPolicy:
         syncOptions:
         - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: drift-managed-high-severity
+  namespace: argocd
+spec:
+  generators:
+  - clusters: {}
+  template:
+    metadata:
+      name: enhanced-high-app
+      labels:
+        drift-severity: high
+        auto-remediate: immediate
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/shibicr93/argo-drift-demo.git
+        targetRevision: HEAD
+        path: k8s/sample-apps/high-severity-manifests
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: enhanced-high-severity
+      syncPolicy:
+        syncOptions:
+        - CreateNamespace=true
+        automated:
+          prune: true
+          selfHeal: true

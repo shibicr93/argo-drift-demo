@@ -9,7 +9,7 @@ kubectl apply -f k8s/argocd-config/custom-health-checks.yaml
 
 # Restart ArgoCD server to load new health checks
 kubectl rollout restart deployment/argocd-server -n argocd
-kubectl rollout restart deployment/argocd-application-controller -n argocd
+kubectl rollout restart deployment/argocd-applicationset-controller -n argocd
 
 # Build hook images
 echo "🐳 Building hook images..."
@@ -17,9 +17,14 @@ docker build -t drift-analyzer:latest -f docker/drift-analyzer/Dockerfile .
 docker build -t audit-logger:latest -f docker/audit-logger/Dockerfile .
 docker build -t emergency-rollback:latest -f docker/emergency-rollback/Dockerfile .
 
-# Apply RBAC and controller
+# Apply RBAC
 kubectl apply -f k8s/rbac.yaml
+
+# Build the main controller image
+docker build -t argo-drift-controller:latest -f docker/Dockerfile .
+# Deploy the controller
 kubectl apply -f k8s/controller-deployment.yaml
+
 
 # Deploy ApplicationSet (this creates all demo apps)
 kubectl apply -f k8s/applicationset.yaml
