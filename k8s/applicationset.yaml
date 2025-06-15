@@ -24,10 +24,10 @@ spec:
         syncPolicy: "emergency"
   template:
     metadata:
-      name: 'enhanced-{{.severity}}-app'
+      name: enhanced-{{ .severity }}-app
       labels:
-        drift-severity: '{{.severity}}'
-        auto-remediate: '{{.autoRemediate}}'
+        drift-severity: "{{ .severity }}"
+        auto-remediate: "{{ .autoRemediate }}"
       annotations:
         argocd.argoproj.io/sync-options: CreateNamespace=true
     spec:
@@ -35,16 +35,16 @@ spec:
       source:
         repoURL: https://github.com/shibicr93/argo-drift-demo.git
         targetRevision: HEAD
-        path: '{{.path}}'
+        path: "{{ .path }}"
         directory:
           recurse: true
           include: "*.yaml"
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{.namespace}}'
+        namespace: "{{ .namespace }}"
       syncPolicy:
         automated:
-          prune: '{{eq .syncPolicy "automated"}}'
-          selfHeal: '{{eq .syncPolicy "automated"}}'
+          prune: {{ eq .syncPolicy "automated" }}
+          selfHeal: {{ eq .syncPolicy "automated" }}
         syncOptions:
         - CreateNamespace=true
