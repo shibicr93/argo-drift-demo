@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-cm
+  namespace: argocd
+data:
+  resource.customizations.health.apps_Deployment: |
+    hs = {}
+    if obj.status ~= nil then
+      if obj.status.unavailableReplicas ~= nil and obj.status.unavailableReplicas > 0 then
+        hs.status = "Degraded"
+        hs.message = "Drift detected: " .. (obj.status.conditions[1].message or "Unknown drift")
+        return hs
+      end
+      if obj.status.replicas ~= obj.spec.replicas then
+        hs.status = "Progressing"
+        hs.message = "Replica count drift detected"
+        return hs
+      end
+    end
+    hs.status = "Healthy"
+    return hs
+
+  resource.customizations.health.v1_Service: |
+    hs = {}
+    if obj.spec.type == "LoadBalancer" then
+      if obj.status.loadBalancer.ingress == nil then
+        hs.status = "Progressing"
+        hs.message = "LoadBalancer ingress pending"
+        return hs
+      end
+    end
+    hs.status = "Healthy"
+    return hs
+
+  resource.customizations.health.argoproj.io_Application: |
+    hs = {}
+    if obj.status ~= nil then
+      if obj.status.sync.status == "OutOfSync" then
+        hs.status = "Degraded"
+        hs.message = "Configuration drift detected - " .. (obj.status.sync.revision or "unknown revision")
+        return hs
+      end
+      if obj.status.health.status == "Degraded" then
+        hs.status = "Degraded"
+        hs.message = "Application health degraded due to drift"
+        return hs
+      end
+    end
+    hs.status = "Healthy"
+    return hs
+
