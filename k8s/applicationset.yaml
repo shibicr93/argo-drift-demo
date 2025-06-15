@@ -33,7 +33,7 @@ spec:
     spec:
       project: default
       source:
-        repoURL: https://github.com/your-repo/argo-drift-demo.git
+        repoURL: https://github.com/shibicr93/argo-drift-demo.git
         targetRevision: HEAD
         path: '{{.path}}'
         directory:
