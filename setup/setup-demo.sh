@@ -22,7 +22,7 @@ kubectl apply -f k8s/controller-deployment.yaml
 
 # Apply resource hooks
 echo "🔧 Applying resource hooks..."
-kubectl apply -f k8s/argocd-config/resource-hooks
+kubectl apply -f k8s/argocd-config/resource-hooks -n argocd
 
 # Deploy ApplicationSet (this creates all demo apps)
 echo "📦 Deploying ApplicationSet for demo applications..."

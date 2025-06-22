@@ -1,3 +1,7 @@
+---
+marp: false
+---
+
 # ArgoCD Advanced Drift Detection and Auto-Remediation Demo
 
 ## Overview

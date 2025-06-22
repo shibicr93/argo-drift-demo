@@ -35,40 +35,6 @@ subjects:
   name: argo-drift-controller
   namespace: argocd
 ---
-# Add ServiceAccount for Resource Hooks
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: drift-hook-sa
-  namespace: argocd
----
-# Role for creating ConfigMaps in argocd namespace
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  namespace: argocd
-  name: configmap-creator
-rules:
-- apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["create", "get", "list", "patch", "update"]
----
-# Bind the role to hook service account
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: drift-hook-configmap-binding
-  namespace: argocd
-subjects:
-- kind: ServiceAccount
-  name: drift-hook-sa
-  namespace: argocd
-roleRef:
-  kind: Role
-  name: configmap-creator
-  apiGroup: rbac.authorization.k8s.io
----
-# Cross-namespace permissions for hooks running in app namespaces
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -77,10 +43,12 @@ rules:
 - apiGroups: [""]
   resources: ["configmaps"]
   verbs: ["create", "get", "list"]
-  resourceNames: []
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list"]
 - apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["create"]
+  resources: ["services"]
+  verbs: ["get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
