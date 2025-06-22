@@ -5,6 +5,7 @@ echo "🚀 Installing ArgoCD on Docker Desktop Kubernetes..."
 
 # Create ArgoCD namespace
 kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f k8s/argocd-config/custom-health-checks.yaml
 
 # Install ArgoCD
 kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml

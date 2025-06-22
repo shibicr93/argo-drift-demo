@@ -14,10 +14,13 @@ rules:
   verbs: ["get", "list", "watch", "patch"]
 - apiGroups: [""]
   resources: ["configmaps"]
-  verbs: ["create", "get", "list"]
+  verbs: ["create", "get", "list", "patch", "update"]
 - apiGroups: ["apps"]
   resources: ["deployments"]
   verbs: ["get", "list", "patch"]
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["create", "get", "list"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -31,4 +34,69 @@ subjects:
 - kind: ServiceAccount
   name: argo-drift-controller
   namespace: argocd
-
+---
+# Add ServiceAccount for Resource Hooks
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: drift-hook-sa
+  namespace: argocd
+---
+# Role for creating ConfigMaps in argocd namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: argocd
+  name: configmap-creator
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["create", "get", "list", "patch", "update"]
+---
+# Bind the role to hook service account
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: drift-hook-configmap-binding
+  namespace: argocd
+subjects:
+- kind: ServiceAccount
+  name: drift-hook-sa
+  namespace: argocd
+roleRef:
+  kind: Role
+  name: configmap-creator
+  apiGroup: rbac.authorization.k8s.io
+---
+# Cross-namespace permissions for hooks running in app namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: drift-hook-cross-namespace
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["create", "get", "list"]
+  resourceNames: []
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: drift-hook-cross-namespace-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: drift-hook-cross-namespace
+subjects:
+- kind: ServiceAccount
+  name: default
+  namespace: enhanced-low-severity
+- kind: ServiceAccount
+  name: default
+  namespace: enhanced-medium-severity
+- kind: ServiceAccount
+  name: default
+  namespace: enhanced-high-severity
