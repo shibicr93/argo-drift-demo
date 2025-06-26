@@ -3,7 +3,9 @@ marp: true
 ---
 # Extending ArgoCD: Building Intelligent Drift Detection & Auto-Remediation
 
-*Advanced GitOps Patterns Implementation*
+
+`Shibi Ramachandran, Software Engineer @ ING
+`
 
 ---
 
@@ -203,7 +205,8 @@ Follow the complete demo walkthrough in [`DEMO.md`](DEMO.md).
 ### Scenario 1: Low Severity - Auto Remediation
 ```bash
 # Simulate replica scaling drift
-kubectl scale deployment guestbook-ui --replicas=5 -n demo-low
+kubectl scale deployment low-severity-app --replicas=1 -n enhanced-low-severity
+
 
 # Watch intelligent detection and auto-remediation
 kubectl logs -f deployment/argo-drift-controller -n argocd
@@ -212,16 +215,12 @@ kubectl logs -f deployment/argo-drift-controller -n argocd
 ### Scenario 2: Medium Severity - Approval Workflow
 ```bash
 # Simulate service configuration change
-kubectl patch service guestbook-ui -n demo-medium -p '{"spec":{"type":"LoadBalancer"}}'
-
-# Observe approval workflow activation
-kubectl get applications demo-medium -n argocd -w
-```
+kubectl patch service medium-severity-app-service -n enhanced-medium-severity -p '{"spec":{"type":"LoadBalancer"}}'
 
 ### Scenario 3: High Severity - Emergency Response
 ```bash
 # Simulate critical resource deletion
-kubectl delete secret critical-secret -n demo-high
+kubectl delete service high-severity-app-service -n enhanced-high-severity
 
 # Watch emergency rollback execution
 kubectl logs -f deployment/argo-drift-controller -n argocd | grep emergency

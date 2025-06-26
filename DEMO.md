@@ -95,13 +95,6 @@ kubectl port-forward svc/argocd-server -n argocd 8080:443
 - Creates ApplicationSet with three demo applications
 - Configures RBAC permissions
 
-**Expected output:**
-```
-🎯 Setting up Enhanced ArgoCD Drift Detection Demo...
-🐳 Building hook images...
-⏳ Waiting for applications to be created...
-✅ Enhanced demo setup complete!
-```
 
 ### Step 5: Verify Installation
 ```bash
@@ -110,11 +103,6 @@ kubectl get applications -n argocd
 
 # Check controller is running
 kubectl get pods -n argocd -l app=argo-drift-controller
-
-# Check demo applications are deployed
-kubectl get deployments -n guestbook-low
-kubectl get deployments -n guestbook-medium  
-kubectl get deployments -n guestbook-high
 ```
 
 ## Demo Components Explained
@@ -124,11 +112,12 @@ kubectl get deployments -n guestbook-high
 
 Creates three applications with different drift policies:
 
-| Application | Severity | Auto-Remediate | Sync Policy | Hook Policy |
-|-------------|----------|----------------|-------------|-------------|
-| drift-demo-low | low | true | automated | auto-sync |
-| drift-demo-medium | medium | conditional | manual | notify-approve |
-| drift-demo-high | high | immediate | emergency | immediate-rollback |
+| Application           | Severity | Auto-Remediate | Sync Policy | Hook Policy         |
+|-----------------------|----------|----------------|-------------|---------------------|
+| enhanced-low-app      | low      | true           | automated   | auto-sync           |
+| enhanced-medium-app   | medium   | conditional    | manual      | notify-approve      |
+| enhanced-high-app     | high     | immediate      | emergency   | immediate-rollback  |
+
 
 **Key Features:**
 - Template-based application generation
@@ -200,6 +189,8 @@ remediation_matrix = {
 - Manages cooldown periods and retry logic
 - Integrates with notification systems
 
+![alt text](assets/image.png)
+
 ## Live Demo Script
 
 ### Phase 1: Initial State Verification (2 minutes)
@@ -208,21 +199,13 @@ remediation_matrix = {
 echo "=== Phase 1: Showing Initial State ==="
 
 # Show ApplicationSet created applications
-kubectl get applications -n argocd -l argocd.argoproj.io/application-set-name=drift-managed-applicationset
+kubectl get applications -n argocd
 
 # Show all applications are healthy
 kubectl get applications -n argocd -o custom-columns=NAME:.metadata.name,HEALTH:.status.health.status,SYNC:.status.sync.status
 
 # Show controller is monitoring
 kubectl logs deployment/argo-drift-controller -n argocd --tail=5
-```
-
-**Expected Output:**
-```
-NAME               HEALTH    SYNC
-drift-demo-low     Healthy   Synced
-drift-demo-medium  Healthy   Synced  
-drift-demo-high    Healthy   Synced
 ```
 
 ### Phase 2: Low Severity Drift Demo (4 minutes)
@@ -232,32 +215,8 @@ echo "=== Phase 2: Low Severity Drift - Auto Remediation ==="
 
 # Simulate low severity drift (replica scaling)
 echo "🎯 Simulating replica count drift..."
-kubectl scale deployment guestbook-ui --replicas=5 -n guestbook-low
+kubectl scale deployment low-severity-app --replicas=1 -n enhanced-low-severity
 
-# Watch custom health check detect drift
-echo "👀 Watching health status change..."
-kubectl get applications drift-demo-low -n argocd -w &
-WATCH_PID=$!
-
-# Wait for detection
-sleep 10
-
-# Show PreSync hook execution
-echo "🔍 PreSync hook analyzing drift..."
-kubectl get jobs -n guestbook-low | grep drift-analysis
-
-# Show auto-sync triggered
-echo "🔄 Auto-sync remediation in progress..."
-kubectl get applications drift-demo-low -n argocd -o yaml | grep -A 5 "automated:"
-
-# Show PostSync audit log created
-echo "📋 PostSync audit log created..."
-kubectl get configmaps -n argocd -l audit-type=drift-remediation | tail -1
-
-# Stop watching
-kill $WATCH_PID 2>/dev/null
-
-echo "✅ Low severity drift auto-remediated!"
 ```
 
 ### Phase 3: Medium Severity Drift Demo (4 minutes)
@@ -267,31 +226,8 @@ echo "=== Phase 3: Medium Severity Drift - Approval Workflow ==="
 
 # Simulate medium severity drift (service change)
 echo "🎯 Simulating service configuration drift..."
-kubectl patch service guestbook-ui -n guestbook-medium -p '{"spec":{"type":"LoadBalancer"}}'
+kubectl patch service medium-severity-app-service -n enhanced-medium-severity -p '{"spec":{"type":"LoadBalancer"}}'
 
-# Show health check detection
-echo "👀 Custom health check detecting service drift..."
-kubectl get applications drift-demo-medium -n argocd -o custom-columns=NAME:.metadata.name,HEALTH:.status.health.status,MESSAGE:.status.health.message
-
-# Show PreSync analysis
-echo "🔍 PreSync hook analyzing medium severity drift..."
-kubectl get jobs -n guestbook-medium | grep drift-analysis
-
-# Show manual approval required
-echo "⏳ Manual approval required - no auto-sync..."
-kubectl get applications drift-demo-medium -n argocd -o yaml | grep -A 3 "syncPolicy:"
-
-# Show notification would be sent
-echo "📧 Notification sent (simulated):"
-echo "   Subject: Medium severity drift detected in drift-demo-medium"
-echo "   Action: Manual approval required within 24 hours"
-
-# Demonstrate manual sync
-echo "👤 Demonstrating manual approval and sync..."
-kubectl patch application drift-demo-medium -n argocd --type='merge' -p='{"spec":{"syncPolicy":{"automated":{"prune":true,"selfHeal":true}}}}'
-
-echo "✅ Medium severity drift requires human approval!"
-```
 
 ### Phase 4: High Severity Drift Demo (3 minutes)
 
@@ -300,25 +236,7 @@ echo "=== Phase 4: High Severity Drift - Emergency Response ==="
 
 # Simulate high severity drift (delete critical service)
 echo "🚨 Simulating critical service deletion..."
-kubectl delete service guestbook-ui -n guestbook-high
-
-# Show immediate health degradation
-echo "💔 Application health immediately degraded..."
-kubectl get applications drift-demo-high -n argocd -o custom-columns=NAME:.metadata.name,HEALTH:.status.health.status,SYNC:.status.sync.status
-
-# Show emergency remediation
-echo "🚑 Emergency remediation triggered..."
-kubectl get jobs -n guestbook-high | grep emergency
-
-# Show emergency alerts created
-echo "🚨 Emergency alerts generated..."
-kubectl get configmaps -n argocd -l alert-type=emergency-rollback | tail -1
-
-# Show immediate sync attempt
-echo "⚡ Immediate sync/rollback in progress..."
-kubectl get applications drift-demo-high -n argocd -o yaml | grep -A 5 "operation:"
-
-echo "✅ High severity drift triggers immediate emergency response!"
+kubectl delete service high-severity-app-service -n enhanced-high-severity
 ```
 
 ### Phase 5: Audit and Observability (2 minutes)
@@ -336,105 +254,13 @@ kubectl get applications -n argocd -o custom-columns=NAME:.metadata.name,HEALTH:
 
 # Show controller metrics
 echo "📊 Controller activity logs..."
-kubectl logs deployment/argo-drift-controller -n argocd --tail=10
+kubectl logs deployment/argo-drift-controller -n argocd --tail=10 | grep -i "info"
 
 # Show ApplicationSet managing policies
 echo "🎛️  ApplicationSet policy management..."
 kubectl describe applicationset drift-managed-applicationset -n argocd | grep -A 10 "Template:"
-
-echo "✅ Complete audit trail and observability demonstrated!"
 ```
 
-## Troubleshooting Guide
-
-### Common Issues
-
-#### 1. Applications Not Created
-```bash
-# Check ApplicationSet status
-kubectl describe applicationset drift-managed-applicationset -n argocd
-
-# Check ArgoCD application controller logs
-kubectl logs deployment/argocd-application-controller -n argocd
-
-# Manually create application if needed
-kubectl apply -f k8s/sample-apps/low-severity-app.yaml
-```
-
-#### 2. Custom Health Checks Not Working
-```bash
-# Verify health checks are loaded
-kubectl get configmap argocd-cm -n argocd -o yaml | grep -A 20 "resource.customizations"
-
-# Restart ArgoCD components
-kubectl rollout restart deployment/argocd-server -n argocd
-kubectl rollout restart deployment/argocd-application-controller -n argocd
-```
-
-#### 3. Hooks Not Executing
-```bash
-# Check hook job status
-kubectl get jobs -A | grep -E "(drift-analysis|audit-logger|emergency-rollback)"
-
-# Check hook logs
-kubectl logs job/drift-analysis-presync -n guestbook-low
-
-# Verify RBAC permissions
-kubectl auth can-i create jobs --as=system:serviceaccount:argocd:argo-drift-controller
-```
-
-#### 4. Controller Not Starting
-```bash
-# Check controller pod status
-kubectl describe pod -l app=argo-drift-controller -n argocd
-
-# Check controller logs
-kubectl logs deployment/argo-drift-controller -n argocd
-
-# Check RBAC permissions
-kubectl get clusterrolebinding argo-drift-controller
-```
-
-### Debug Commands
-
-```bash
-# Enable verbose logging
-kubectl set env deployment/argo-drift-controller -n argocd LOG_LEVEL=DEBUG
-
-# Check resource usage
-kubectl top pods -n argocd
-
-# Verify network connectivity
-kubectl exec -it deployment/argo-drift-controller -n argocd -- ping argocd-server
-
-# Check ArgoCD API access
-kubectl exec -it deployment/argo-drift-controller -n argocd -- curl -k https://argocd-server/api/v1/applications
-```
-
-## Cleanup
-
-### Quick Cleanup
-```bash
-./setup/cleanup.sh
-```
-
-### Manual Cleanup
-```bash
-# Remove demo applications
-kubectl delete applications -n argocd -l argocd.argoproj.io/application-set-name=drift-managed-applicationset
-
-# Remove ApplicationSet
-kubectl delete applicationset drift-managed-applicationset -n argocd
-
-# Remove controller
-kubectl delete deployment argo-drift-controller -n argocd
-
-# Remove ArgoCD (optional)
-kubectl delete namespace argocd
-
-# Remove demo namespaces
-kubectl delete namespace guestbook-low guestbook-medium guestbook-high
-```
 
 ## Customization
 
@@ -455,31 +281,3 @@ kubectl delete namespace guestbook-low guestbook-medium guestbook-high
 2. **Scalability:** Use persistent storage for audit logs
 3. **Reliability:** Add circuit breakers and rate limiting
 4. **Compliance:** Ensure audit logs meet regulatory requirements
-
-## Demo Talking Points
-
-### For Technical Audience
-- "Notice how the ApplicationSet creates consistent policies across environments"
-- "The custom health checks provide immediate drift visibility"
-- "Resource hooks create a complete remediation lifecycle"
-- "All actions are auditable and traceable"
-
-### For Management Audience
-- "Reduces MTTR from hours to minutes"
-- "Prevents configuration drift from causing outages"
-- "Provides complete audit trail for compliance"
-- "Scales across hundreds of applications automatically"
-
-## Next Steps
-
-After the demo, consider:
-1. **Pilot Implementation:** Start with non-production environments
-2. **Team Training:** Ensure teams understand the remediation policies
-3. **Monitoring Setup:** Implement proper observability stack
-4. **Process Integration:** Align with existing change management processes
-
----
-
-**Total Demo Time:** ~15 minutes + Q&A
-**Audience Level:** Intermediate to Advanced DevOps/SRE
-**Key Takeaway:** ArgoCD's native features can be combined to create sophisticated, automated drift management systems
