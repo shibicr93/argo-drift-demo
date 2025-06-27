@@ -4,8 +4,8 @@ marp: true
 # Extending ArgoCD: Building Intelligent Drift Detection & Auto-Remediation
 
 
-`Shibi Ramachandran, Software Engineer @ ING
-`
+`Shibi Ramachandran, Software Engineer @ ING`
+`Ram Mohan Rao Chukka, Software Engineer @ JFrog`
 
 ---
 
